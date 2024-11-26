@@ -44,8 +44,10 @@ except gspread.exceptions.SpreadsheetNotFound:
     print(f"Spreadsheet '{sheet_name}' created. Share it with the service account for access.")
 
 # Default route for testing
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def home():
+    if request.method == "POST":
+        return "Triggered successfully via POST!"
     return "CommCare Integration API is running!"
 
 # Function to fetch data from CommCare
