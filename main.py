@@ -83,6 +83,13 @@ def clean_dataframe(df):
 
 @app.route('/update_sheets', methods=['POST'])
 def update_sheets():
+    test_url = "https://india.commcarehq.org/a/kangaroo-mother-care-ansh/api/v0.5/form/"
+    try:
+        test_response = requests.get(test_url, headers=headers)
+        print("Test API Response:", test_response.status_code)
+        print("Test API Body:", test_response.text)
+    except Exception as e:
+        print("Error testing API access:", str(e))
     """Process all forms and update Google Sheets."""
     print("POST request received at /update_sheets")  # Debug log
     forms_to_fetch = [
