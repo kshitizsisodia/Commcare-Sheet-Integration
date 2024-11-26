@@ -29,6 +29,10 @@ credentials_path = "google_sheet_cred.json"
 with open(credentials_path, "w") as f:
     f.write(creds_content)
 
+# Authorize Google Sheets API
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+client = gspread.authorize(creds)
 
 # Target Google Sheet
 sheet_name = "Facility Observations - CommCare Realtime"  # Replace with your Google Sheet name
