@@ -17,11 +17,17 @@ headers = {"Authorization": f"ApiKey {username}:{api_key}"}
 # Google Sheets setup
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 import os
-credentials_path = "google_sheet_cred.json"  # This will be replaced
-creds_content = os.environ["GOOGLE_SHEETS_CRED"]
-with open("google_sheet_cred.json", "w") as f:
-    f.write(creds_content)
+
+# Decode the Google Sheets credentials from the environment variable
+creds_content = os.getenv("GOOGLE_SHEETS_CRED")
+
+if not creds_content:
+    raise ValueError("Environment variable GOOGLE_SHEETS_CRED is not set or empty.")
+
+# Write the decoded credentials to a temporary file
 credentials_path = "google_sheet_cred.json"
+with open(credentials_path, "w") as f:
+    f.write(creds_content)
 
 
 # Target Google Sheet
