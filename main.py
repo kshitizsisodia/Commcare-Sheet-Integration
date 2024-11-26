@@ -81,9 +81,10 @@ def clean_dataframe(df):
     df = df.fillna("")
     return df
 
-# Route to process forms and update Google Sheets
 @app.route('/update_sheets', methods=['POST'])
 def update_sheets():
+    """Process all forms and update Google Sheets."""
+    print("POST request received at /update_sheets")  # Debug log
     forms_to_fetch = [
         {"xmlns": "http://openrosa.org/formdesigner/65304B1B-FF8C-4683-8026-B935FD0DC674", "tab_name": "Cleaning Checklist"},
         {"xmlns": "http://openrosa.org/formdesigner/9EB06393-8DBE-4180-B537-A564850798B4", "tab_name": "KC Inventory Checklist"},
@@ -103,13 +104,14 @@ def update_sheets():
         if not df.empty:
             df = clean_dataframe(df)
             try:
+                # Try to open the worksheet/tab; create it if it doesn't exist
                 try:
                     worksheet = spreadsheet.worksheet(tab_name)
                 except gspread.exceptions.WorksheetNotFound:
-                    print(f"Sheet '{tab_name}' not found. Recreating...")
                     worksheet = spreadsheet.add_worksheet(title=tab_name, rows="1000", cols="20")
 
-                worksheet.clear()
+                # Clear the worksheet and update data
+                worksheet.clear()  # Ensure old data is removed
                 worksheet.update([df.columns.values.tolist()] + df.values.tolist())
                 print(f"Updated sheet/tab: {tab_name}")
             except Exception as e:
@@ -117,7 +119,8 @@ def update_sheets():
         else:
             print(f"No data found for form: {tab_name}")
 
-    return jsonify({"message": "All forms processed successfully!"}), 200
+    return jsonify({"message": "All forms processed successfully"}), 200
+
 
 # Run the Flask app
 if __name__ == "__main__":
