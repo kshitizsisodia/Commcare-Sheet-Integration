@@ -1,5 +1,9 @@
 from flask import Flask, request, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+limiter = Limiter(get_remote_address, app=app)
 import requests
+from flask import request, abort
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -85,7 +89,15 @@ def clean_dataframe(df):
     df = df.replace([float("inf"), float("-inf")], None)  # Replace inf and -inf with None
     df = df.fillna("")  # Replace NaN with an empty string
     return df
-
+    
+    
+API_TOKEN = "securedata@ansh123"
+@app.route('/update_sheets', methods=['POST'])
+def update_sheets():
+token = request.headers.get("Authorization")
+if token != f"Bearer {API_TOKEN}":
+abort(403)  # Forbidden
+        
 # Flask route to process forms
 @app.route('/update_sheets', methods=['POST'])
 def update_sheets():
