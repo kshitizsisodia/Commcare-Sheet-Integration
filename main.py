@@ -5,17 +5,15 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
 from dotenv import load_dotenv
-import ssl
-from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
-import gc
-import time
 
 # Load environment variables
 load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Rate-limiting setup (basic implementation)
+request_counts = {}
 
 # CommCare API details (fetched from environment variables)
 base_url = "https://india.commcarehq.org/a/kangaroo-mother-care-ansh/api/v0.5/form/"
@@ -42,28 +40,22 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
 client = gspread.authorize(creds)
 
-# Target Google Sheet
-sheet_name = "CommCare Realtime"
-try:
-    spreadsheet = client.open(sheet_name)
-except gspread.exceptions.SpreadsheetNotFound:
-    print(f"Spreadsheet '{sheet_name}' not found. Creating a new one...")
-    spreadsheet = client.create(sheet_name)
-    print(f"Spreadsheet '{sheet_name}' created. Share it with the service account for access.")
+# Target Google Sheets
+sheet_1_name = "Facility Observations - CommCare Realtime"
+sheet_2_name = "Healthcare Worker Observations - CommCare Realtime"
+sheet_3_name = "Interviews - CommCare Realtime"
+
+# Open or create the Google Sheets
+sheets = {}
+for sheet_name in [sheet_1_name, sheet_2_name, sheet_3_name]:
+    try:
+        sheets[sheet_name] = client.open(sheet_name)
+    except gspread.exceptions.SpreadsheetNotFound:
+        sheets[sheet_name] = client.create(sheet_name)
+        print(f"Created {sheet_name}")
 
 # API Token for security
 API_TOKEN = "securedata@ansh123"
-
-# TLS Enforcement
-ssl_context = ssl.create_default_context()
-ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS = "HIGH:!DH:!aNULL"
-
-# Retry Mechanism for HTTPS Calls
-session = requests.Session()
-retries = Retry(total=5, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
-adapter = HTTPAdapter(max_retries=retries)
-session.mount("https://", adapter)
 
 # Default route for testing
 @app.route("/", methods=["GET", "POST"])
@@ -75,7 +67,7 @@ def home():
 # Function to fetch data from CommCare
 def fetch_commcare_data(xmlns):
     """Fetch data from the CommCare API for a specific xmlns."""
-    limit = 5000  # Reduced limit for memory optimization
+    limit = 1000
     offset = 0
     all_data = []
 
@@ -84,7 +76,7 @@ def fetch_commcare_data(xmlns):
         print(f"Fetching records for xmlns {xmlns}, starting at offset {offset}...")
 
         try:
-            response = session.get(api_url, headers=headers)
+            response = requests.get(api_url, headers=headers)
             response.raise_for_status()
             data = response.json()
             records = data.get("objects", [])
@@ -94,13 +86,9 @@ def fetch_commcare_data(xmlns):
             if not data.get("meta", {}).get("next"):
                 break
             offset += limit
-
         except requests.exceptions.RequestException as e:
             print(f"Error fetching data for xmlns {xmlns}: {e}")
             break
-
-        # Release memory
-        gc.collect()
 
     return pd.json_normalize(all_data) if all_data else pd.DataFrame()
 
@@ -111,50 +99,71 @@ def clean_dataframe(df):
     df = df.fillna("")  # Replace NaN with an empty string
     return df
 
-# Flask route to process forms
-@app.route('/update_sheets', methods=['POST'])
-def update_sheets():
-    """Process all forms and update Google Sheets."""
-    # Check API token
-    token = request.headers.get("Authorization")
-    if not token or token != f"Bearer {API_TOKEN}":
-        abort(403)  # Forbidden
-
-    forms_to_fetch = [
-        {"xmlns": "http://openrosa.org/formdesigner/65304B1B-FF8C-4683-8026-B935FD0DC674", "tab_name": "Cleaning Checklist"},
-        {"xmlns": "http://openrosa.org/formdesigner/9EB06393-8DBE-4180-B537-A564850798B4", "tab_name": "KC Inventory Checklist"},
-        # Add other forms as needed...
-    ]
-
-    for form in forms_to_fetch:
+# Flask route to process forms and update sheets
+def update_sheet(sheet, forms):
+    """Update a single sheet with a group of forms."""
+    for form in forms:
         xmlns = form["xmlns"]
         tab_name = form["tab_name"]
-
         print(f"Processing form data for: {tab_name}")
         df = fetch_commcare_data(xmlns)
-
         if not df.empty:
             df = clean_dataframe(df)
             try:
-                # Try to open the worksheet/tab; create it if it doesn't exist
+                # Open the worksheet or create if it doesn't exist
                 try:
-                    worksheet = spreadsheet.worksheet(tab_name)
+                    worksheet = sheet.worksheet(tab_name)
                 except gspread.exceptions.WorksheetNotFound:
-                    worksheet = spreadsheet.add_worksheet(title=tab_name, rows="1000", cols="20")
+                    worksheet = sheet.add_worksheet(title=tab_name, rows="1000", cols="20")
 
-                # Clear the worksheet and update data
+                # Clear and update the worksheet
                 worksheet.clear()
                 worksheet.update([df.columns.values.tolist()] + df.values.tolist())
-                print(f"Updated sheet/tab: {tab_name}")
+                print(f"Updated {tab_name} in {sheet.title}")
             except Exception as e:
                 print(f"Error updating sheet/tab {tab_name}: {e}")
         else:
             print(f"No data found for form: {tab_name}")
 
-        # Free memory after processing each form
-        gc.collect()
+@app.route('/update_sheets', methods=['POST'])
+def update_sheets():
+    """Route to update all sheets."""
+    # Verify API token
+    token = request.headers.get("Authorization")
+    if not token or token != f"Bearer {API_TOKEN}":
+        abort(403)
 
-    return jsonify({"message": "All forms processed successfully"}), 200
+    # Update Sheet 1
+    forms_sheet_1 = [
+        {"xmlns": "http://openrosa.org/formdesigner/65304B1B-FF8C-4683-8026-B935FD0DC674", "tab_name": "Cleaning Checklist"},
+        {"xmlns": "http://openrosa.org/formdesigner/9EB06393-8DBE-4180-B537-A564850798B4", "tab_name": "Inventory Checklist"},
+        {"xmlns": "http://openrosa.org/formdesigner/928FA710-2CC8-4348-8382-82E6A96EF714", "tab_name": "Furnishing Checklist"},
+        {"xmlns": "http://openrosa.org/formdesigner/855C2642-C2C8-4D86-8374-CEBBD5E8AC77", "tab_name": "Cleaning Checklist KMC Program"},
+        {"xmlns": "http://openrosa.org/formdesigner/99D79080-56CA-43F8-85D5-FFF0DCD9C5E1", "tab_name": "Fire a Hospital Staff"},
+        {"xmlns": "http://openrosa.org/formdesigner/81FC2C13-CD6F-4F2A-BCBF-98C8466F0A3C", "tab_name": "File a damage/replacement"},
+    ]
+    update_sheet(sheets[sheet_1_name], forms_sheet_1)
+
+    # Update Sheet 2
+    forms_sheet_2 = [
+        {"xmlns": "http://openrosa.org/formdesigner/8C12ABAA-C695-46FB-A21F-B67612866DAE", "tab_name": "Validation of Weighting Process"},
+        {"xmlns": "http://openrosa.org/formdesigner/6B79AADB-7492-4FF9-8389-C0A4D1AA6987", "tab_name": "Case Observations"},
+        {"xmlns": "http://openrosa.org/formdesigner/40AF78C9-BE3E-4669-96DC-567FFFED09C0", "tab_name": "Phone Follow Up Monitoring"},
+        {"xmlns": "http://openrosa.org/formdesigner/F562E2DC-F5DB-4AA3-BD8A-2060333C0045", "tab_name": "File a Review"},
+        {"xmlns": "http://openrosa.org/formdesigner/99D79080-56CA-43F8-85D5-FFF0DCD9C5E1", "tab_name": "Identification (Monthly)"},
+    ]
+    update_sheet(sheets[sheet_2_name], forms_sheet_2)
+
+    # Update Sheet 3
+    forms_sheet_3 = [
+        {"xmlns": "http://openrosa.org/formdesigner/A830988B-FF25-4545-B353-5B6531724A06", "tab_name": "Mother Checklist and Skill Test"},
+        {"xmlns": "http://openrosa.org/formdesigner/C4572AEB-F1AB-46B6-A72E-C15DC082CDAD", "tab_name": "Mothers Feedback"},
+        {"xmlns": "http://openrosa.org/formdesigner/7220BE06-2E2E-4A21-AB74-81AEEF65123C", "tab_name": "Nurses Feedback"},
+        {"xmlns": "http://openrosa.org/formdesigner/B5044629-00EC-4356-B378-72B58E2E00EC", "tab_name": "Nurses Skill Test"},
+    ]
+    update_sheet(sheets[sheet_3_name], forms_sheet_3)
+
+    return jsonify({"message": "All sheets updated successfully"}), 200
 
 # Run the Flask app
 if __name__ == "__main__":
