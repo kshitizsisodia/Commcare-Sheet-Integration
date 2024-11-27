@@ -7,4 +7,3 @@ oauth2client
 gunicorn
 python-dotenv
 flask-limiter
-redis
