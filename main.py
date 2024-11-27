@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, abort
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from redis import Redis
 import requests
 import pandas as pd
 import gspread
@@ -14,8 +15,12 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 
+# Initialize Redis for Flask-Limiter
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")  # Default to localhost if REDIS_URL is not set
+redis_client = Redis.from_url(redis_url)
+
 # Initialize rate limiter
-limiter = Limiter(get_remote_address, app=app)
+limiter = Limiter(get_remote_address, app=app, storage_uri=redis_url)
 
 # CommCare API details (fetched from environment variables)
 base_url = "https://india.commcarehq.org/a/kangaroo-mother-care-ansh/api/v0.5/form/"
