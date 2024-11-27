@@ -75,7 +75,7 @@ def home():
 # Function to fetch data from CommCare
 def fetch_commcare_data(xmlns):
     """Fetch data from the CommCare API for a specific xmlns."""
-    limit = 500  # Reduced limit for memory optimization
+    limit = 5000  # Reduced limit for memory optimization
     offset = 0
     all_data = []
 
