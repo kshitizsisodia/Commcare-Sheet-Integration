@@ -96,7 +96,7 @@ API_TOKEN = "securedata@ansh123"
 def update_sheets():
     token = request.headers.get("Authorization")
     if token != f"Bearer {API_TOKEN}":
-    abort(403)  # Forbidden
+        abort(403)  # Forbidden
         
 # Flask route to process forms
 @app.route('/update_sheets', methods=['POST'])
