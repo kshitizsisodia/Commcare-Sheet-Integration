@@ -94,9 +94,9 @@ def clean_dataframe(df):
 API_TOKEN = "securedata@ansh123"
 @app.route('/update_sheets', methods=['POST'])
 def update_sheets():
-token = request.headers.get("Authorization")
-if token != f"Bearer {API_TOKEN}":
-abort(403)  # Forbidden
+    token = request.headers.get("Authorization")
+    if token != f"Bearer {API_TOKEN}":
+    abort(403)  # Forbidden
         
 # Flask route to process forms
 @app.route('/update_sheets', methods=['POST'])
