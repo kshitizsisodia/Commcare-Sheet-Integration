@@ -48,7 +48,7 @@ creds = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope
 client = gspread.authorize(creds)
 
 # Target Google Sheet
-sheet_name = "Facility Observations - CommCare Realtime"
+sheet_name = "CommCare Realtime"
 try:
     spreadsheet = client.open(sheet_name)
 except gspread.exceptions.SpreadsheetNotFound:
@@ -118,6 +118,15 @@ def update_sheets():
         {"xmlns": "http://openrosa.org/formdesigner/855C2642-C2C8-4D86-8374-CEBBD5E8AC77", "tab_name": "Cleaning Checklist KMC Program"},
         {"xmlns": "http://openrosa.org/formdesigner/99D79080-56CA-43F8-85D5-FFF0DCD9C5E1", "tab_name": "Fire a Hospital Staff"},
         {"xmlns": "http://openrosa.org/formdesigner/81FC2C13-CD6F-4F2A-BCBF-98C8466F0A3C", "tab_name": "File a damage/replacement"},
+        {"xmlns": "http://openrosa.org/formdesigner/8C12ABAA-C695-46FB-A21F-B67612866DAE","tab_name": "Validation of Weighting Process",},
+        {"xmlns": "http://openrosa.org/formdesigner/6B79AADB-7492-4FF9-8389-C0A4D1AA6987","tab_name": "Case Observations",},
+        {"xmlns": "http://openrosa.org/formdesigner/40AF78C9-BE3E-4669-96DC-567FFFED09C0","tab_name": "Phone Follow Up Monitoring",},
+        {"xmlns": "http://openrosa.org/formdesigner/F562E2DC-F5DB-4AA3-BD8A-2060333C0045","tab_name": "File a Review",},
+        {"xmlns": "http://openrosa.org/formdesigner/99D79080-56CA-43F8-85D5-FFF0DCD9C5E1","tab_name": "Identification (Monthly)",},
+        {"xmlns": "http://openrosa.org/formdesigner/A830988B-FF25-4545-B353-5B6531724A06","tab_name": "Mother Checklist and Skill Test",},
+        {"xmlns": "http://openrosa.org/formdesigner/C4572AEB-F1AB-46B6-A72E-C15DC082CDAD","tab_name": "Mothers Feedback",},
+        {"xmlns": "http://openrosa.org/formdesigner/7220BE06-2E2E-4A21-AB74-81AEEF65123C","tab_name": "Nurses Feedback",},
+        {"xmlns": "http://openrosa.org/formdesigner/B5044629-00EC-4356-B378-72B58E2E00EC","tab_name": "Nurses Skill Test",},
     ]
 
     for form in forms_to_fetch:
